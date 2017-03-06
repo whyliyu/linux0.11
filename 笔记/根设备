@@ -1,0 +1,3 @@
+http://blog.csdn.net/yes_life/article/details/6831856
+
+内核的根设备（ root device）是指根文件系统所在的分区。这里的例子根设备为

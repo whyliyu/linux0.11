@@ -205,7 +205,7 @@ setup_paging:
 	movl $pg2+7,_pg_dir+8		/*  --------- " " --------- */
 	movl $pg3+7,_pg_dir+12		/*  --------- " " --------- */
 	movl $pg3+4092,%edi
-	movl $0xfff007,%eax		/*  16Mb - 4096 + 7 (r/w user,p) 第4个页表的最后一项指向16MB中的最后一页*/
+	movl $0xfff007,%eax		/*  16Mb - 4096 + 7 (r/w user,p) 第4个页表的最后一项指向16MB中最后一项*/
 	std
 1:	stosl			/* fill pages backwards - more efficient :-) */
 	subl $0x1000,%eax
