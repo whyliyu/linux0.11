@@ -51,7 +51,7 @@ int copy_mem(int nr,struct task_struct * p)
 		panic("Bad data_limit");
 	new_data_base = new_code_base = nr * 0x4000000;  /*第nr个进程的线性地址空间是(nr-1)*64MB ~ (nr*64MB-1) */
 	p->start_code = new_code_base;
-	set_base(p->ldt[1],new_code_base);   /*个性化自己的ldt内容：设置代码段与数据段基地址*/ 
+	set_base(p->ldt[1],new_code_base);   /*个性化自己的ldt内容：设置代码段与数据段基地址*/ /*代码段数据段的基地址与限长并不包括动态申请的数据，比如get_free_page()申请的页面*/
 	set_base(p->ldt[2],new_data_base);
 	if (copy_page_tables(old_data_base,new_data_base,data_limit)) {
 		free_page_tables(new_data_base,data_limit);
