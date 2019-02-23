@@ -86,6 +86,7 @@ return __res;
  * Free a page of memory at physical address 'addr'. Used by
  * 'free_page_tables()'
  */
+//释放物理地址为addr的页，具体做法是将mem_map[addr >> 12]的值减1
 void free_page(unsigned long addr)
 {
 	if (addr < LOW_MEM) return;
@@ -102,6 +103,8 @@ void free_page(unsigned long addr)
  * This function frees a continuos block of page tables, as needed
  * by 'exit()'. As does copy_page_tables(), this handles only 4Mb blocks.
  */
+ //释放线性地址为[from,from + size]的页与页表，（如果size不足4mb，那么会释放4mb的页与它们的页表）
+ //具体做法为：每4mb一个循环，每个循环先释放这4mb的所有页，再释放页表，并把指向该页表的页目录项置为0
 int free_page_tables(unsigned long from,unsigned long size)
 {
 	unsigned long *pg_table;
@@ -111,20 +114,20 @@ int free_page_tables(unsigned long from,unsigned long size)
 		panic("free_page_tables called with wrong alignment");
 	if (!from)
 		panic("Trying to free up swapper memory space");
-	size = (size + 0x3fffff) >> 22;
+	size = (size + 0x3fffff) >> 22;		//不足4mb的话，会补足4mb
 	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
 	for ( ; size-->0 ; dir++) {
 		if (!(1 & *dir))
 			continue;
 		pg_table = (unsigned long *) (0xfffff000 & *dir);
-		for (nr=0 ; nr<1024 ; nr++) {
+		for (nr=0 ; nr<1024 ; nr++) {		//释放一个页表中每个页表项指向的页
 			if (1 & *pg_table)
-				free_page(0xfffff000 & *pg_table);
+				free_page(0xfffff000 & *pg_table);		//释放页面
 			*pg_table = 0;
 			pg_table++;
 		}
-		free_page(0xfffff000 & *dir);
-		*dir = 0;
+		free_page(0xfffff000 & *dir);		//释放该页表所占有的页面
+		*dir = 0;		//页目录项置为0
 	}
 	invalidate();
 	return 0;
@@ -161,21 +164,21 @@ int copy_page_tables(unsigned long from,unsigned long to,long size) /*把线性�
 	to_dir = (unsigned long *) ((to>>20) & 0xffc);  /*目的目录项地址*/
 	size = ((unsigned) (size+0x3fffff)) >> 22;     /*要复制的页目录项数*/
 	for( ; size-->0 ; from_dir++,to_dir++) {
-		if (1 & *to_dir)
+		if (1 & *to_dir)		//检查目的页目录项存在位
 			panic("copy_page_tables: already exist");
-		if (!(1 & *from_dir))
+		if (!(1 & *from_dir))		//如果源页目录项的存在位为不存在（指向的页表不在内存中），不用复制这个页目录项和对应的页表，跳过
 			continue;
-		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);  /*取出页目录项中记载的页表地址，线性 or 物理?*/
+		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);  /*取出页目录项中记载的页表地址，线性 or 物理?， 物理*/
 		if (!(to_page_table = (unsigned long *) get_free_page()))
 			return -1;	/* Out of memory, see freeing */
 		*to_dir = ((unsigned long) to_page_table) | 7;
-		nr = (from==0)?0xA0:1024;
-		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {   //一整个循环完毕后，代表一个页表复制完毕
+		nr = (from==0)?0xA0:1024;		//一个页表要复制1024项，但是如果源线性地址为0的话（代表是进程0调用的fork），这复制0xa0项
+		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {   //页目录项已经复制，开始复制对应的页表，这个循环完毕后，代表一个页表复制完毕
 			this_page = *from_page_table;
 			if (!(1 & this_page))
 				continue;
 			this_page &= ~2;
-			*to_page_table = this_page;
+			*to_page_table = this_page;		//设为只读
 			if (this_page > LOW_MEM) {
 				*from_page_table = this_page;
 				this_page -= LOW_MEM;
@@ -194,6 +197,8 @@ int copy_page_tables(unsigned long from,unsigned long to,long size) /*把线性�
  * out of memory (either when trying to access page-table or
  * page.)
  */
+ //将线性地址address映射到物理页框page
+ //page:页物理地址（页表项），address:线性地址
 unsigned long put_page(unsigned long page,unsigned long address)
 {
 	unsigned long tmp, *page_table;
@@ -205,7 +210,7 @@ unsigned long put_page(unsigned long page,unsigned long address)
 	if (mem_map[(page-LOW_MEM)>>12] != 1)
 		printk("mem_map disagrees with %p at %p\n",page,address);
 	page_table = (unsigned long *) ((address>>20) & 0xffc);
-	if ((*page_table)&1)
+	if ((*page_table)&1)		//如果address对应的页表已经存在（通过页目录项查），那么直接使用这个这个页表
 		page_table = (unsigned long *) (0xfffff000 & *page_table);
 	else {
 		if (!(tmp=get_free_page()))
@@ -213,7 +218,7 @@ unsigned long put_page(unsigned long page,unsigned long address)
 		*page_table = tmp|7;
 		page_table = (unsigned long *) tmp;
 	}
-	page_table[(address>>12) & 0x3ff] = page | 7;
+	page_table[(address>>12) & 0x3ff] = page | 7;		//设置页表项，将线性地址address映射到物理页框page
 /* no need for invalidate */
 	return page;
 }
@@ -235,7 +240,7 @@ void un_wp_page(unsigned long * table_entry)
 	*table_entry = new_page | 7;
 	invalidate();
 	copy_page(old_page,new_page);
-}	
+}
 
 /*
  * This routine handles present pages, when users try to write
@@ -370,19 +375,19 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	int block,i;
 
 	address &= 0xfffff000;
-	tmp = address - current->start_code;
+	tmp = address - current->start_code; //线性地址address缺页地址的逻辑地址
 	if (!current->executable || tmp >= current->end_data) {
 		get_empty_page(address);
 		return;
 	}
 	if (share_page(tmp))
 		return;
-	if (!(page = get_free_page()))
+	if (!(page = get_free_page()))		//申请一块新的页面，用来加载新的页
 		oom();
 /* remember that 1 block is used for header */
-	block = 1 + tmp/BLOCK_SIZE;
+	block = 1 + tmp/BLOCK_SIZE;		//得到缺页地址的代码段在文件中对应的数据块号
 	for (i=0 ; i<4 ; block++,i++)
-		nr[i] = bmap(current->executable,block);
+		nr[i] = bmap(current->executable,block);		//得到数据块在设备上的逻辑块号
 	bread_page(page,current->executable->i_dev,nr);
 	i = tmp + 4096 - current->end_data;
 	tmp = page + 4096;
@@ -390,7 +395,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 		tmp--;
 		*(char *)tmp = 0;
 	}
-	if (put_page(page,address))
+	if (put_page(page,address))	//将线性地址映射到新申请的页框中
 		return;
 	free_page(page);
 	oom();

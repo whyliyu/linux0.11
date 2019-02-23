@@ -33,8 +33,8 @@ start:
 ! ok, the read went well so we get current cursor position and save it for
 ! posterity.
 
-	mov	ax,#INITSEG	! this is done in bootsect already, but...
-	mov	ds,ax
+	mov	ax,#INITSEG	! this is done in bootsect already, but... ! just for more clear logic
+	mov	ds,ax! cs = 0x9000, ds = 0x9000 ss = undifined
 	mov	ah,#0x03	! read cursor pos
 	xor	bh,bh
 	int	0x10		! save it in known place, con_init fetches
@@ -129,9 +129,9 @@ do_move:
 
 end_move:
 	mov	ax,#SETUPSEG	! right, forgot this at first. didn't work :-)
-	mov	ds,ax
+	mov	ds,ax		! cs = 0x9000, ds = 0x9000 ss = 0x9000
 	lidt	idt_48		! load idt with 0,0
-	lgdt	gdt_48		! load gdt with whatever appropriate
+	lgdt	gdt_48		! load gdt with whatever appropriate ! cs = 0x9000, ds = 0x9000, ss = 0x9000, idtr = 0x0000 0000 0000, gdtr = (0x0009 0200 + &gdt) << 16 + 0x0800
 
 ! that was painless, now we enable A20
 
@@ -190,7 +190,7 @@ end_move:
 
 	mov	ax,#0x0001	! protected mode (PE) bit
 	lmsw	ax		! This is it!
-	jmpi	0,8		! jmp offset 0 of segment 8 (cs)
+	jmpi	0,8		! jmp offset 0 of segment 8 (cs)	! cs = (0x00c0 9A00 0000 07FF)0x0008
 
 ! This routine checks that the keyboard command queue is empty
 ! No timeout is used - if this hangs there is something wrong with
@@ -222,7 +222,7 @@ idt_48:
 gdt_48:
 	.word	0x800		! gdt limit=2048, 256 GDT entries
 	.word	512+gdt,0x9	! gdt base = 0X9xxxx
-	
+
 .text
 endtext:
 .data

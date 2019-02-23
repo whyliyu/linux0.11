@@ -101,7 +101,7 @@ void math_state_restore()
  * tasks can run. It can not be killed, and it cannot sleep. The 'state'
  * information in task[0] is never used.
  */
-void schedule(void)
+void schedule(void)		//进程调度：找到当前最适合的进程，并切换至该进程
 {
 	int i,next,c;
 	struct task_struct ** p;
@@ -320,7 +320,7 @@ void do_timer(long cpl)
 		next_timer->jiffies--;
 		while (next_timer && next_timer->jiffies <= 0) {
 			void (*fn)(void);
-			
+
 			fn = next_timer->fn;
 			next_timer->fn = NULL;
 			next_timer = next_timer->next;

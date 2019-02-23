@@ -113,7 +113,7 @@ void main(void)		/* This really IS void, no error here. */
 	memory_end &= 0xfffff000;
 	if (memory_end > 16*1024*1024)
 		memory_end = 16*1024*1024;
-	if (memory_end > 12*1024*1024) 
+	if (memory_end > 12*1024*1024)
 		buffer_memory_end = 4*1024*1024;
 	else if (memory_end > 6*1024*1024)
 		buffer_memory_end = 2*1024*1024;
@@ -134,7 +134,7 @@ void main(void)		/* This really IS void, no error here. */
 	hd_init();
 	floppy_init();
 	sti();
-	move_to_user_mode();
+	move_to_user_mode();		//cs = (0x0000 0000 9fc0 fa00) 0x000f, ds = (0x0000 0000 9fc0 f200) 0x0017, ss = (0x0000 0000 9fc0 f200) 0x0017， (都使用了ldt，实际指向的为位置没有变化),
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}
@@ -169,7 +169,7 @@ void init(void)
 {
 	int pid,i;
 
-	setup((void *) &drive_info);
+	setup((void *) &drive_info);		//初始化文件系统数据结构，加载软盘中的文件系统到虚拟盘：引导扇区，超级块，根inode，所有文件inode
 	(void) open("/dev/tty0",O_RDWR,0);
 	(void) dup(0);
 	(void) dup(0);

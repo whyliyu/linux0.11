@@ -16,19 +16,19 @@
 _pg_dir:
 startup_32:
 	movl $0x10,%eax
-	mov %ax,%ds
+	mov %ax,%ds    ! ds = (0x00c0 9200 0000 07FF)0x0010
 	mov %ax,%es
 	mov %ax,%fs
 	mov %ax,%gs
-	lss _stack_start,%esp
-	call setup_idt
-	call setup_gdt
+	lss _stack_start,%esp    ! ss = (0x00c0 9200 0000 07FF) 0x0010 = ds
+	call setup_idt   ！ idtr = 0x(&_idt) 0x07FF (高32位idt地址，大概位于0x4000，即16kb之后的位置，低16位为idt限长256 * 8)
+	call setup_gdt   ！ gdtr = 0x(&_idt) 0x07FF （和idt紧埃这，段限长也一样）
 	movl $0x10,%eax		# reload all the segment registers
-	mov %ax,%ds		# after changing gdt. CS was already
+	mov %ax,%ds		# after changing gdt. CS was already    ! ds = (0x00c0 9200 0000 0fff) 0x0010
 	mov %ax,%es		# reloaded in 'setup_gdt'
 	mov %ax,%fs
 	mov %ax,%gs
-	lss _stack_start,%esp
+	lss _stack_start,%esp    ! ss = (0x00c0 9200 0000 07FF) 0x0010 = ds
 	xorl %eax,%eax
 1:	incl %eax		# check that A20 really IS enabled
 	movl %eax,0x000000	# loop forever if it isn't
@@ -215,7 +215,7 @@ setup_paging:
 	movl %cr0,%eax
 	orl $0x80000000,%eax
 	movl %eax,%cr0		/* set paging (PG) bit */
-	ret			/* this also flushes prefetch-queue */
+	ret			/* this also flushes prefetch-queue */  ! 返回main函数
 
 .align 2
 .word 0

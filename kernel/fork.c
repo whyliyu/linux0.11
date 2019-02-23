@@ -51,7 +51,7 @@ int copy_mem(int nr,struct task_struct * p)
 		panic("Bad data_limit");
 	new_data_base = new_code_base = nr * 0x4000000;  /*第nr个进程的线性地址空间是(nr-1)*64MB ~ (nr*64MB-1) */
 	p->start_code = new_code_base;
-	set_base(p->ldt[1],new_code_base);   /*个性化自己的ldt内容：设置代码段与数据段基地址*/ 
+	set_base(p->ldt[1],new_code_base);   /*个性化自己的ldt内容：设置代码段与数据段基地址*/
 	set_base(p->ldt[2],new_data_base);
 	if (copy_page_tables(old_data_base,new_data_base,data_limit)) {
 		free_page_tables(new_data_base,data_limit);
@@ -108,11 +108,11 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.ds = ds & 0xffff;
 	p->tss.fs = fs & 0xffff;
 	p->tss.gs = gs & 0xffff;
-	p->tss.ldt = _LDT(nr);
+	p->tss.ldt = _LDT(nr);		//tss中的ldt选择子，切换进程时，会根据这个找到对应进程的idt在gdt中的位置
 	p->tss.trace_bitmap = 0x80000000;
 	if (last_task_used_math == current)
 		__asm__("clts ; fnsave %0"::"m" (p->tss.i387));
-	if (copy_mem(nr,p)) {
+	if (copy_mem(nr,p)) {		//会改变新进程task_struct的ldt的基址（pid * 64mb）
 		task[nr] = NULL;
 		free_page((long) p);
 		return -EAGAIN;
@@ -126,7 +126,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		current->root->i_count++;
 	if (current->executable)
 		current->executable->i_count++;
-	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
+	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));		//将task_struct的tss和ldt挂接到gdt中
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	p->state = TASK_RUNNING;	/* do this last, just in case */
 	return last_pid;

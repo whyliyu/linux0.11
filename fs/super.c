@@ -239,7 +239,7 @@ int sys_mount(char * dev_name, char * dir_name, int rw_flag)
 	return 0;			/* we do that in umount */
 }
 
-void mount_root(void)
+void mount_root(void) //把根设备的根inode挂接到super_block[0]中
 {
 	int i,free;
 	struct super_block * p;
@@ -258,7 +258,7 @@ void mount_root(void)
 		p->s_lock = 0;
 		p->s_wait = NULL;
 	}
-	if (!(p=read_super(ROOT_DEV)))
+	if (!(p=read_super(ROOT_DEV)))		//从跟设备（虚拟盘）中读取到超级块，并且设置
 		panic("Unable to mount root");
 	if (!(mi=iget(ROOT_DEV,ROOT_INO)))
 		panic("Unable to read root i-node");

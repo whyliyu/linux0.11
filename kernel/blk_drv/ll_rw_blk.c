@@ -134,7 +134,7 @@ repeat:
 	req->cmd = rw;
 	req->errors=0;
 	req->sector = bh->b_blocknr<<1;
-	req->nr_sectors = 2;
+	req->nr_sectors = 2;		//一个buffer对应两个扇区
 	req->buffer = bh->b_data;
 	req->waiting = NULL;
 	req->bh = bh;

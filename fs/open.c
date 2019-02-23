@@ -64,7 +64,7 @@ int sys_access(const char * filename,int mode)
 	 * XXX we are doing this test last because we really should be
 	 * swapping the effective with the real user id (temporarily),
 	 * and then calling suser() routine.  If we do call the
-	 * suser() routine, it needs to be called last. 
+	 * suser() routine, it needs to be called last.
 	 */
 	if ((!current->uid) &&
 	    (!(mode & 1) || (i_mode & 0111)))
@@ -134,22 +134,25 @@ int sys_chown(const char * filename,int uid,int gid)
 	iput(inode);
 	return 0;
 }
-
-int sys_open(const char * filename,int flag,int mode)
+/*
+	实际上打开文件就是读取文件的inode到inode[32]，并将该inode和进程用struct file结构体关联起来，这个结构体放在file_table[64].
+	task struct中存有一个struct file的指针数组flip[20],其中的下标就是对应的文件描述符，每个元素指向file_table[64]中的元素，
+*/
+int sys_open(const char * filename,int flag,int mode)		//打开文件，返回文件描述符
 {
 	struct m_inode * inode;
 	struct file * f;
 	int i,fd;
 
 	mode &= 0777 & ~current->umask;
-	for(fd=0 ; fd<NR_OPEN ; fd++)
+	for(fd=0 ; fd<NR_OPEN ; fd++)		//在task_struct打开文件中，找到一个空闲项作为这个进程新打开文件的项
 		if (!current->filp[fd])
 			break;
-	if (fd>=NR_OPEN)
+	if (fd>=NR_OPEN)		//这个进程打开的文件数量已经达到上限
 		return -EINVAL;
 	current->close_on_exec &= ~(1<<fd);
 	f=0+file_table;
-	for (i=0 ; i<NR_FILE ; i++,f++)
+	for (i=0 ; i<NR_FILE ; i++,f++)		//在file_table[64]中找到一个空闲项，和task_struct中的文件挂接；如果一个文件被不同的进程打开会怎么样？
 		if (!f->f_count) break;
 	if (i>=NR_FILE)
 		return -EINVAL;
@@ -190,7 +193,7 @@ int sys_creat(const char * pathname, int mode)
 }
 
 int sys_close(unsigned int fd)
-{	
+{
 	struct file * filp;
 
 	if (fd >= NR_OPEN)

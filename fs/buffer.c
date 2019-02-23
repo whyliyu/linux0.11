@@ -19,7 +19,7 @@
  */
 
 #include <stdarg.h>
- 
+
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -163,8 +163,8 @@ static inline void insert_into_queues(struct buffer_head * bh)
 	bh->b_next->b_prev = bh;
 }
 
-static struct buffer_head * find_buffer(int dev, int block)
-{		
+static struct buffer_head * find_buffer(int dev, int block)   //搜索hash_table，查看对应的设备上的块是否已经被读取
+{
 	struct buffer_head * tmp;
 
 	for (tmp = hash(dev,block) ; tmp != NULL ; tmp = tmp->b_next)
@@ -236,7 +236,7 @@ repeat:
 	}
 /* NOTE!! While we slept waiting for this block, somebody else might */
 /* already have added "this" block to the cache. check it */
-	if (find_buffer(dev,block))
+	if (find_buffer(dev,block))    //并发的情况下，可能有其它进程已经把对应的块添加到了hash_table
 		goto repeat;
 /* OK, FINALLY we know that this buffer is the only one of it's kind, */
 /* and that it's unused (b_count=0), unlocked (b_lock=0), and clean */
@@ -378,4 +378,4 @@ void buffer_init(long buffer_end)
 	h->b_next_free = free_list;
 	for (i=0;i<NR_HASH;i++)
 		hash_table[i]=NULL;
-}	
+}

@@ -146,8 +146,8 @@ int create_block(struct m_inode * inode, int block)
 {
 	return _bmap(inode,block,1);
 }
-		
-void iput(struct m_inode * inode)
+
+void iput(struct m_inode * inode)		//关闭inode
 {
 	if (!inode)
 		return;
@@ -241,7 +241,7 @@ struct m_inode * get_pipe_inode(void)
 	return inode;
 }
 
-struct m_inode * iget(int dev,int nr)
+struct m_inode * iget(int dev,int nr)		//找到设备dev上的第nr个inode，并在内存中设置对应的inode（inode_table[32]）
 {
 	struct m_inode * inode, * empty;
 
