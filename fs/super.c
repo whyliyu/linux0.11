@@ -53,6 +53,7 @@ static void wait_on_super(struct super_block * sb)
 	sti();
 }
 
+//从super_block[8]中得到指定设备的超级块指针
 struct super_block * get_super(int dev)
 {
 	struct super_block * s;
@@ -197,6 +198,13 @@ int sys_umount(char * dev_name)
 	return 0;
 }
 
+// 挂载dev_name到dir_name，dev_name一般为/dev/${block device}
+// /dev是一个特殊的，在内存中的目录，它的目录项都指向的都是“设备文件”
+//
+// dir_name是挂载点的路径，它必须是一个目录
+// 挂载其实就是将dir_name所代表的文件的inode的i_mount设为1，代表它是一个挂载点
+// 然后将被挂载设备的超级块加载进super_block[8],并设置super_block的s_mount指
+// 向挂载点的inode（所以被挂载点的inode是一直被打开的）
 int sys_mount(char * dev_name, char * dir_name, int rw_flag)
 {
 	struct m_inode * dev_i, * dir_i;
@@ -239,7 +247,7 @@ int sys_mount(char * dev_name, char * dir_name, int rw_flag)
 	return 0;			/* we do that in umount */
 }
 
-void mount_root(void) //把根设备的根inode挂接到super_block[0]中
+void mount_root(void) //把根设备的根inode(在根设备上存放)挂接到super_block[0]中
 {
 	int i,free;
 	struct super_block * p;

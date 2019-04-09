@@ -56,6 +56,7 @@ int sys_sync(void)
 	return 0;
 }
 
+//遍历所有缓冲块，把指定设备的脏缓冲块全部刷写到设备
 int sync_dev(int dev)
 {
 	int i;
@@ -128,6 +129,10 @@ void check_disk_change(int dev)
 #define _hashfn(dev,block) (((unsigned)(dev^block))%NR_HASH)
 #define hash(dev,block) hash_table[_hashfn(dev,block)]
 
+//buffer有4个链表指针，所以可以组成两个队列，hash queue和free list
+//其实buffer会组成多个hash queue挂接到hash_table组成邻接表
+//free list并不是真正的“空闲”链表，相反，它一直连接着所有的buffer
+//这个方法把buffer从hash queue和free list中移了出来
 static inline void remove_from_queues(struct buffer_head * bh)
 {
 /* remove from hash-queue */
@@ -146,6 +151,8 @@ static inline void remove_from_queues(struct buffer_head * bh)
 		free_list = bh->b_next_free;
 }
 
+//将buffer加入到free list中
+//如果buffer有指定的设备，那么再把它加入到hash queue中
 static inline void insert_into_queues(struct buffer_head * bh)
 {
 /* put at end of free list */
@@ -163,7 +170,9 @@ static inline void insert_into_queues(struct buffer_head * bh)
 	bh->b_next->b_prev = bh;
 }
 
-static struct buffer_head * find_buffer(int dev, int block)   //搜索hash_table，查看对应的设备上的块是否已经被读取
+//搜索hash_table，查看对应的设备上的块是否已经被读取到buffer
+//如果没有被读取过，返回null，否则返回对应的buffer
+static struct buffer_head * find_buffer(int dev, int block)
 {
 	struct buffer_head * tmp;
 
@@ -180,6 +189,7 @@ static struct buffer_head * find_buffer(int dev, int block)   //搜索hash_table
  * will force it bad). This shouldn't really happen currently, but
  * the code is ready.
  */
+ //在hash_table中搜索指定设备的指定数据块的buffer，如果它没有被读取到buffer中，那么返回null
 struct buffer_head * get_hash_table(int dev, int block)
 {
 	struct buffer_head * bh;
@@ -202,19 +212,21 @@ struct buffer_head * get_hash_table(int dev, int block)
  *
  * The algoritm is changed: hopefully better, and an elusive bug removed.
  */
+//为指定设备的指定数据块得到一个buffer，
+//如果这个数据块已经被读入到某个buffer（通过hash_table判断），那么可以直接返回
 #define BADNESS(bh) (((bh)->b_dirt<<1)+(bh)->b_lock)
 struct buffer_head * getblk(int dev,int block)
 {
 	struct buffer_head * tmp, * bh;
 
-repeat:
+repeat: //repeat循环负责在hashtable中找到已经读取的buffer，或free list中空的buffer
 	if (bh = get_hash_table(dev,block))
 		return bh;
 	tmp = free_list;
 	do {
 		if (tmp->b_count)
 			continue;
-		if (!bh || BADNESS(tmp)<BADNESS(bh)) {
+		if (!bh || BADNESS(tmp)<BADNESS(bh)) { //判断修改标志（dirt），和锁定标志（lock）
 			bh = tmp;
 			if (!BADNESS(tmp))
 				break;
@@ -229,7 +241,7 @@ repeat:
 	if (bh->b_count)
 		goto repeat;
 	while (bh->b_dirt) {
-		sync_dev(bh->b_dev);
+		sync_dev(bh->b_dev);//所有缓冲块都是脏的，说明没有可用的缓冲块了，必须将这些缓冲块刷入设备
 		wait_on_buffer(bh);
 		if (bh->b_count)
 			goto repeat;
@@ -264,15 +276,16 @@ void brelse(struct buffer_head * buf)
  * bread() reads a specified block and returns the buffer that contains
  * it. It returns NULL if the block was unreadable.
  */
+ //将指定设备的指定文件块读入一个buffer中，并返回对应buffer_head的指针
 struct buffer_head * bread(int dev,int block)
 {
 	struct buffer_head * bh;
-
+  //为dev的指定block得到一块buffer，数据可能已经读取到这个buffer中了，也可能是空的buffer
 	if (!(bh=getblk(dev,block)))
 		panic("bread: getblk returned NULL\n");
-	if (bh->b_uptodate)
+	if (bh->b_uptodate) //如果有数据，而且是最新的数据，直接返回这个buffer
 		return bh;
-	ll_rw_block(READ,bh);
+	ll_rw_block(READ,bh); //读盘命令
 	wait_on_buffer(bh);
 	if (bh->b_uptodate)
 		return bh;

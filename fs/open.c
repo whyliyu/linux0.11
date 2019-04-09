@@ -134,10 +134,9 @@ int sys_chown(const char * filename,int uid,int gid)
 	iput(inode);
 	return 0;
 }
-/*
-	实际上打开文件就是读取文件的inode到inode[32]，并将该inode和进程用struct file结构体关联起来，这个结构体放在file_table[64].
-	task struct中存有一个struct file的指针数组flip[20],其中的下标就是对应的文件描述符，每个元素指向file_table[64]中的元素，
-*/
+
+//实际上打开文件就是读取文件的inode到inode[32]，并将该inode和进程用struct file结构体关联起来，这个结构体放在file_table[64].
+//task struct中存有一个struct file的指针数组flip[20],其中的下标就是对应的文件描述符，每个元素指向file_table[64]中的元素，
 int sys_open(const char * filename,int flag,int mode)		//打开文件，返回文件描述符
 {
 	struct m_inode * inode;
@@ -157,7 +156,7 @@ int sys_open(const char * filename,int flag,int mode)		//打开文件，返回�
 	if (i>=NR_FILE)
 		return -EINVAL;
 	(current->filp[fd]=f)->f_count++;
-	if ((i=open_namei(filename,flag,mode,&inode))<0) {
+	if ((i=open_namei(filename,flag,mode,&inode))<0) { //以指定模式打开inode
 		current->filp[fd]=NULL;
 		f->f_count=0;
 		return i;
@@ -179,7 +178,7 @@ int sys_open(const char * filename,int flag,int mode)		//打开文件，返回�
 /* Likewise with block-devices: check for floppy_change */
 	if (S_ISBLK(inode->i_mode))
 		check_disk_change(inode->i_zone[0]);
-	f->f_mode = inode->i_mode;
+	f->f_mode = inode->i_mode;//设置文件描述符的模式，inode，偏移等
 	f->f_flags = flag;
 	f->f_count = 1;
 	f->f_inode = inode;

@@ -51,26 +51,27 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	}
 	return file->f_pos;
 }
-
+//通过文件描述符将指定数据量count的数据读取到buf指向的位置；
+//注意，buf是用户空间的指针不能直接使用
 int sys_read(unsigned int fd,char * buf,int count)
 {
 	struct file * file;
 	struct m_inode * inode;
 
-	if (fd>=NR_OPEN || count<0 || !(file=current->filp[fd]))
+	if (fd>=NR_OPEN || count<0 || !(file=current->filp[fd])) //检查文件描述符是否合法，句柄是否打开
 		return -EINVAL;
 	if (!count)
 		return 0;
 	verify_area(buf,count);
 	inode = file->f_inode;
-	if (inode->i_pipe)
+	if (inode->i_pipe)//管道处理
 		return (file->f_mode&1)?read_pipe(inode,buf,count):-EIO;
-	if (S_ISCHR(inode->i_mode))
+	if (S_ISCHR(inode->i_mode))//字符设备处理
 		return rw_char(READ,inode->i_zone[0],buf,count,&file->f_pos);
-	if (S_ISBLK(inode->i_mode))
+	if (S_ISBLK(inode->i_mode))//块设备处理
 		return block_read(inode->i_zone[0],&file->f_pos,buf,count);
-	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) {
-		if (count+file->f_pos > inode->i_size)
+	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) {//目录或普通文件处理
+		if (count+file->f_pos > inode->i_size) //避免count超过文件尾
 			count = inode->i_size - file->f_pos;
 		if (count<=0)
 			return 0;
@@ -84,7 +85,7 @@ int sys_write(unsigned int fd,char * buf,int count)
 {
 	struct file * file;
 	struct m_inode * inode;
-	
+
 	if (fd>=NR_OPEN || count <0 || !(file=current->filp[fd]))
 		return -EINVAL;
 	if (!count)

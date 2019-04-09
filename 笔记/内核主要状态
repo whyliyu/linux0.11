@@ -1,0 +1,44 @@
+1.cpu寄存器
+2.gdt，idt
+3.页目录表与页表
+
+4.任务描述符表 struct task_struct task[64]
+代码位置：kernel/sched.c
+
+5.struct blk_dev_struct blk_dev[7]；
+代码位置：kernel/blk_dev/blk.h,kernrl/blk_dev/ll_rw_block.c
+块设备请求项函数控制结构，每一项代表一个主设备
+每个struct blk_dev_struct关联一个请求处理函数与当前设备的请求队列，它在数组中的位置代表了它的主设备号
+
+6.unsigned char mem_map[PAGING_PAGES]
+代码位置：mm/memory.c
+内存页框管理结构,mem_map[addr] = USED,代表addr * 4kb的页框被占用
+
+7.struct request request[32]
+代码位置：kernel/blk_dev/blk.h,kernrl/blk_dev/ll_rw_block.c
+块设备请求项，也就是说，最多同时32个io请求；
+每个struct request记录请求的内容，在逻辑上关联一个（请求内容「设备，位置」，进程，buffer）三元组
+
+8.struct buffer_head * free_list,struct buffer_head * hash_table[307]
+代码位置：fs/buffer.c
+缓冲区管理结构，由缓冲块列表free_list,和缓冲块哈希表hash_table组成;
+缓冲区列表free_list包含所有缓冲块
+缓冲块哈希表hash_table包含了正在使用的缓冲块
+
+9.struct hd_i_struct hd_info[2],struct hd_struct hd[2 * 5]
+代码位置：kernel/blk_dev/hd.c
+硬盘分区信息，支持两块硬盘，每块硬盘最多4个分区（包括自己本身的话共5个）
+hd_info[2]是最初通过bios中断函数得到的
+hd[2*5]是通过读取硬盘引导块得到的
+
+10.struct super_block super_block[8]
+代码：fs/super.c
+超级块管理结构，第1个是虚拟盘的超级块，从软盘中读取
+
+11.struct file file_table[64]
+代码：fs/file_table.c
+文件句柄管理结构
+
+12.struct m_inode inode_table[32]
+代码：fs/inode.c
+已经打开的inode管理结构，可以看出，整个系统同时可以打开32个文件，但是可以持有64个句柄

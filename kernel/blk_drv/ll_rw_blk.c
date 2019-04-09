@@ -70,11 +70,13 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 	if (req->bh)
 		req->bh->b_dirt = 0;
 	if (!(tmp = dev->current_request)) {
+		//如果对应设备的请求队列为空，那么直接发起请求
 		dev->current_request = req;
 		sti();
-		(dev->request_fn)();
+		(dev->request_fn)(); //执行对应设备的请求函数，硬盘对应的请求函数是do_hd_request()
 		return;
 	}
+	//插入请求队列
 	for ( ; tmp->next ; tmp=tmp->next)
 		if ((IN_ORDER(tmp,req) ||
 		    !IN_ORDER(tmp,tmp->next)) &&
@@ -142,10 +144,11 @@ repeat:
 	add_request(major+blk_dev,req);
 }
 
-void ll_rw_block(int rw, struct buffer_head * bh)
+void ll_rw_block(int rw, struct buffer_head * bh) //读取设备数据到buffer，或写入buffer数据到设备
 {
 	unsigned int major;
 
+  //如果设备的主设备号不存在，或者设备的读写函数不存在，则死机
 	if ((major=MAJOR(bh->b_dev)) >= NR_BLK_DEV ||
 	!(blk_dev[major].request_fn)) {
 		printk("Trying to read nonexistent block-device\n\r");

@@ -176,7 +176,15 @@ static int win_result(void)
 	if (i&1) i=inb(HD_ERROR);
 	return (1);
 }
-
+//// 向硬盘控制器发送命令块(参见列表后的说明)。
+// 调用参数:
+//drive - 硬盘号(0-1);
+//nsect - 读写扇区数;
+// sect - 起始扇区;
+//head - 磁头号;
+// cyl - 柱面号;
+//cmd - 命令码(参见控制器命令列表，表 6.3);
+// *intr_addr() - 硬盘中断发生时处理程序中将调用的 C 处理函数。
 static void hd_out(unsigned int drive,unsigned int nsect,unsigned int sect,
 		unsigned int head,unsigned int cyl,unsigned int cmd,
 		void (*intr_addr)(void))
@@ -187,6 +195,10 @@ static void hd_out(unsigned int drive,unsigned int nsect,unsigned int sect,
 		panic("Trying to write bad sector");
 	if (!controller_ready())
 		panic("HD controller not ready");
+	//设置中断处理程序中调用的函数do_hd;
+	//do_hd这个函数指针虽然是全局的，但是并不会影响多个进程的读写，因为
+	//不管多少进程并发，对硬盘的所有请求总是线性的，一个请求必须得等待上
+	//一个请求完成才能进行
 	do_hd = intr_addr;
 	outb_p(hd_info[drive].ctl,HD_CMD);
 	port=HD_DATA;
@@ -298,34 +310,39 @@ void do_hd_request(void)
 	unsigned int sec,head,cyl;
 	unsigned int nsect;
 
-	INIT_REQUEST;
-	dev = MINOR(CURRENT->dev);
+	INIT_REQUEST; //检查请求项的合法性，请求队列是否有请求
+	dev = MINOR(CURRENT->dev); //取硬盘设备的子设备号，比如第几个分区
 	block = CURRENT->sector;
 	if (dev >= 5*NR_HD || block+2 > hd[dev].nr_sects) {
+		//如果分区大于5，或者请求的block数超过分区中的block（一个block两个扇区），则停止这个请求
 		end_request(0);
-		goto repeat;
+		goto repeat; //在blk.h的INIT_REQUEST宏里，检查请求队列中是否还有请求
 	}
 	block += hd[dev].start_sect;
 	dev /= 5;
+	//计算扇区号，柱面号，磁头号
 	__asm__("divl %4":"=a" (block),"=d" (sec):"0" (block),"1" (0),
 		"r" (hd_info[dev].sect));
 	__asm__("divl %4":"=a" (cyl),"=d" (head):"0" (block),"1" (0),
 		"r" (hd_info[dev].head));
 	sec++;
 	nsect = CURRENT->nr_sectors;
+	// 如果 reset 标志是置位的，则执行复位操作。复位硬盘和控制器，并置需要重新校正标志，返回。
 	if (reset) {
 		reset = 0;
 		recalibrate = 1;
 		reset_hd(CURRENT_DEV);
 		return;
 	}
+	// 如果重新校正标志(recalibrate)置位，则首先复位该标志，然后向硬盘控制器发送重新校正命令。
+	// 该命令会执行寻道操作，让处于任何地方的磁头移动到 0 柱面。
 	if (recalibrate) {
 		recalibrate = 0;
 		hd_out(dev,hd_info[CURRENT_DEV].sect,0,0,0,
 			WIN_RESTORE,&recal_intr);
 		return;
 	}
-	if (CURRENT->cmd == WRITE) {
+	if (CURRENT->cmd == WRITE) { //读盘
 		hd_out(dev,nsect,sec,head,cyl,WIN_WRITE,&write_intr);
 		for(i=0 ; i<3000 && !(r=inb_p(HD_STATUS)&DRQ_STAT) ; i++)
 			/* nothing */ ;
@@ -334,7 +351,7 @@ void do_hd_request(void)
 			goto repeat;
 		}
 		port_write(HD_DATA,CURRENT->buffer,256);
-	} else if (CURRENT->cmd == READ) {
+	} else if (CURRENT->cmd == READ) { //写盘
 		hd_out(dev,nsect,sec,head,cyl,WIN_READ,&read_intr);
 	} else
 		panic("unknown hd-command");

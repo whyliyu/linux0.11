@@ -245,26 +245,26 @@ static struct m_inode * get_dir(const char * pathname)
 		inode = current->pwd;
 	else
 		return NULL;	/* empty name is bad */
-	inode->i_count++;
+	inode->i_count++;//这里没有用iget就引用了一次进程根目录或当前目录，所以自增1
 	while (1) {
 		thisname = pathname;
 		if (!S_ISDIR(inode->i_mode) || !permission(inode,MAY_EXEC)) {
-			iput(inode);
+			iput(inode);//如果路径上有不是目录的文件，或者没有权限，返回空
 			return NULL;
 		}
 		for(namelen=0;(c=get_fs_byte(pathname++))&&(c!='/');namelen++)
 			/* nothing */ ;
-		if (!c)
+		if (!c)//后边没有‘/’，说明当前inode是最后一级目录的inode了
 			return inode;
 		if (!(bh = find_entry(&inode,thisname,namelen,&de))) {
-			iput(inode);
+			iput(inode);//每前进一级目录，释放上一级目录的引用
 			return NULL;
 		}
 		inr = de->inode;
 		idev = inode->i_dev;
 		brelse(bh);
 		iput(inode);
-		if (!(inode = iget(idev,inr)))
+		if (!(inode = iget(idev,inr)))//得到下一级目录的inode
 			return NULL;
 	}
 }
@@ -275,6 +275,7 @@ static struct m_inode * get_dir(const char * pathname)
  * dir_namei() returns the inode of the directory of the
  * specified name, and the name within that directory.
  */
+ //得到指定路径的最后一级目录的inode，并且通过指针设置文件名长度与文件名
 static struct m_inode * dir_namei(const char * pathname,
 	int * namelen, const char ** name)
 {
@@ -300,6 +301,7 @@ static struct m_inode * dir_namei(const char * pathname,
  * Open, link etc use their own routines, but this is enough for things
  * like 'chmod' etc.
  */
+ //读取指定路径文件（目录）的inode到内存inode_table[32]，并返回inode指针
 struct m_inode * namei(const char * pathname)
 {
 	const char * basename;
@@ -323,8 +325,8 @@ struct m_inode * namei(const char * pathname)
 	iput(dir);
 	dir=iget(dev,inr);
 	if (dir) {
-		dir->i_atime=CURRENT_TIME;
-		dir->i_dirt=1;
+		dir->i_atime=CURRENT_TIME; //修改访问时间
+		dir->i_dirt=1; //设置inode为脏
 	}
 	return dir;
 }
@@ -334,6 +336,11 @@ struct m_inode * namei(const char * pathname)
  *
  * namei for open - this is in fact almost the whole open-routine.
  */
+ //这个函数和namei差不多，但是专门为进程打开文件做了一些额外的检查与操作；
+ //比如这个函数可以在文件不存在（即不存在对应的目录项）的时候（建立/清空）
+ //文件（即新建目录项，指向new_inode()得到的inode），算是程序员经常进
+ //行的操作了，open系统调用就是使用这个函数实现的；
+ //对于不需要这些额外操作的功能（比如chmod），可以直接使用namei；
 int open_namei(const char * pathname, int flag, int mode,
 	struct m_inode ** res_inode)
 {
@@ -416,7 +423,7 @@ int sys_mknod(const char * filename, int mode, int dev)
 	struct m_inode * dir, * inode;
 	struct buffer_head * bh;
 	struct dir_entry * de;
-	
+
 	if (!suser())
 		return -EPERM;
 	if (!(dir = dir_namei(filename,&namelen,&basename)))
@@ -554,7 +561,7 @@ static int empty_dir(struct m_inode * inode)
 		return 0;
 	}
 	de = (struct dir_entry *) bh->b_data;
-	if (de[0].inode != inode->i_num || !de[1].inode || 
+	if (de[0].inode != inode->i_num || !de[1].inode ||
 	    strcmp(".",de[0].name) || strcmp("..",de[1].name)) {
 	    	printk("warning - bad directory on dev %04x\n",inode->i_dev);
 		return 0;
